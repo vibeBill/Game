@@ -1,0 +1,59 @@
+.bag {
+  height: 300px;
+  width: 400px;
+  padding: 10px;
+  border: 1px solid black;
+  border-radius: 16px;
+  background-color: #f1f1f1;
+  display: flex;
+  flex-direction: column;
+  .bagContent {
+    flex: 1;
+    display: flex;
+    .petShow {
+      width: 150px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      .show {
+        width: 100px;
+        height: 100px;
+      }
+      .intro {
+        margin-top: 10px;
+        font-size: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        .name {
+          font-weight: bold;
+        }
+      }
+    }
+    .tools {
+      width: 250px;
+    }
+  }
+
+  .pets {
+    height: 50px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    .petSlot {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: #fff;
+      border: 1px solid black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      cursor: pointer;
+      &:hover {
+        background-color: #ddd;
+      }
+    }
+  }
+}
