@@ -17,46 +17,42 @@ const BoardWrapper = styled.div`
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-`;
 
-const TouchInstructions = styled.div`
-  color: var(--text-color);
-  font-size: 0.9rem;
-  opacity: 0.8;
-  text-align: center;
-  margin-bottom: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
-const ZoomIndicator = styled.div`
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  opacity: 0.8;
+  /* Hide scrollbar for IE, Edge and Firefox */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 `;
 
 const BoardContainer = styled.div`
   position: relative;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start; /* Align to the start to allow horizontal scrolling */
   width: 100%;
-  overflow: auto;
+  overflow-x: auto; /* Enable horizontal scrolling */
+  overflow-y: hidden; /* Disable vertical scrolling */
+  -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on touch devices */
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 `;
 
-const Board = styled.div<{ cols: number; isTouchDevice: boolean; scale: number }>`
+const Board = styled.div<{ cols: number; isTouchDevice: boolean }>`
   display: grid;
   grid-template-columns: repeat(${props => props.cols}, ${props => props.isTouchDevice ? '24px' : '30px'});
   gap: 1px;
   min-width: min-content;
   transform-origin: center;
-  transform: scale(${props => props.scale});
   transition: transform 0.1s ease;
 `;
 
@@ -73,6 +69,10 @@ const Cell = styled.button<{ isRevealed: boolean; isFlagged: boolean; isLongPres
   font-size: ${props => props.isTouchDevice ? '0.8rem' : '1rem'};
   transition: all 0.2s ease;
   transform: ${props => props.isLongPressing ? 'scale(0.9)' : 'none'};
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 
   &:hover {
     background-color: ${props => props.isRevealed ? '#e0e0e0' : '#f5f5f5'};
@@ -129,21 +129,10 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
   const [touchTimer, setTouchTimer] = useState<NodeJS.Timeout | null>(null);
   const [longPressingCell, setLongPressingCell] = useState<{row: number, col: number} | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
-  const [scale, setScale] = useState(1);
-  const [initialTouchDistance, setInitialTouchDistance] = useState<number | null>(null);
-  const [initialScale, setInitialScale] = useState(1);
 
   useEffect(() => {
     setIsTouchDevice('ontouchstart' in window);
-    // Set initial scale based on board size for touch devices
-    if ('ontouchstart' in window) {
-      const viewportWidth = Math.min(window.innerWidth, 900);
-      const boardWidth = cols * (24 + 1); // cell width + gap
-      if (boardWidth > viewportWidth * 0.9) {
-        setScale((viewportWidth * 0.9) / boardWidth);
-      }
-    }
-  }, [cols]);
+  }, []);
 
   const initializeBoard = (firstClickRow: number, firstClickCol: number) => {
     // Create empty board
@@ -201,9 +190,29 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
     }
   };
 
+  const revealNeighborsIfSafe = (row: number, col: number, currentBoard: CellData[][]) => {
+    const cell = currentBoard[row][col];
+    if (!cell.isRevealed || cell.isMine) return;
+  
+    const neighbors = getNeighborCoords(row, col, rows, cols);
+  
+    // Check if all flagged cells are actually mines
+    const flaggedCells = neighbors.filter(([r, c]) => currentBoard[r][c].isFlagged);
+    const isFlaggedCorrectly = flaggedCells.every(([r, c]) => currentBoard[r][c].isMine);
+  
+    // If the number of flagged cells equals the number of neighbor mines AND all flags are correct
+    if (flaggedCells.length === cell.neighborMines && isFlaggedCorrectly) {
+      neighbors.forEach(([r, c]) => {
+        if (!currentBoard[r][c].isRevealed && !currentBoard[r][c].isFlagged) {
+          revealCell(r, c, currentBoard);
+        }
+      });
+    }
+  };
+
   const handleCellClick = (row: number, col: number) => {
     if (board[row][col].isFlagged) return;
-
+  
     if (isFirstClick) {
       const newBoard = initializeBoard(row, col);
       revealCell(row, col, newBoard);
@@ -211,7 +220,7 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
       setIsFirstClick(false);
       return;
     }
-
+  
     if (board[row][col].isMine) {
       // Game Over
       const revealedBoard = board.map(row =>
@@ -221,11 +230,19 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
       onGameOver(false);
       return;
     }
-
+  
     const newBoard = board.map(row => [...row]);
-    revealCell(row, col, newBoard);
+    
+    if (board[row][col].isRevealed) {
+      // If the cell is already revealed, check if it's safe to reveal neighbors
+      revealNeighborsIfSafe(row, col, newBoard);
+    } else {
+      // Otherwise, reveal the clicked cell
+      revealCell(row, col, newBoard);
+    }
+  
     setBoard(newBoard);
-
+  
     // Check win condition
     const unrevealedCells = newBoard.flat().filter(cell => !cell.isRevealed).length;
     if (unrevealedCells === mines) {
@@ -246,29 +263,20 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
   };
 
   const handleRightClick = (e: React.MouseEvent, row: number, col: number) => {
-    if (isTouchDevice) return; // Disable right click on touch devices
     e.preventDefault();
+    if (isTouchDevice) return; // Disable right click on touch devices
     toggleFlag(row, col);
   };
 
   const handleTouchStart = (row: number, col: number, e: React.TouchEvent) => {
     if (!isTouchDevice) return;
-
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      const distance = getTouchDistance(e.touches as unknown as React.TouchList);
-      if (distance) {
-        setInitialTouchDistance(distance);
-        setInitialScale(scale);
-      }
-    } else {
-      setLongPressingCell({ row, col });
-      const timer = setTimeout(() => {
-        toggleFlag(row, col);
-        setLongPressingCell(null);
-      }, 500); // 500ms long press
-      setTouchTimer(timer);
-    }
+    e.preventDefault();
+    setLongPressingCell({ row, col });
+    const timer = setTimeout(() => {
+      toggleFlag(row, col);
+      setLongPressingCell(null);
+    }, 500); // 500ms long press
+    setTouchTimer(timer);
   };
 
   const handleTouchEnd = () => {
@@ -277,27 +285,6 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
       clearTimeout(touchTimer);
       setTouchTimer(null);
     }
-    setInitialTouchDistance(null);
-  };
-
-  const getTouchDistance = (touches: React.TouchList) => {
-    if (touches.length < 2) return null;
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      const distance = getTouchDistance(e.touches as unknown as React.TouchList);
-      
-      if (distance && initialTouchDistance) {
-        const newScale = (distance / initialTouchDistance) * initialScale;
-        setScale(Math.min(Math.max(newScale, 0.5), 2));
-      }
-    }
-    handleTouchEnd();
   };
 
   useEffect(() => {
@@ -321,14 +308,8 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
 
   return (
     <BoardWrapper>
-      {isTouchDevice && (
-        <TouchInstructions>
-          <div>💡 Long press to flag suspicious cells</div>
-          <div>👆 Use two fingers to zoom in/out</div>
-        </TouchInstructions>
-      )}
       <BoardContainer>
-        <Board cols={cols} isTouchDevice={isTouchDevice} scale={scale}>
+        <Board cols={cols} isTouchDevice={isTouchDevice}>
           {board.map((row, rowIndex) =>
             row.map((cell, colIndex) => (
               <Cell
@@ -341,7 +322,6 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
                 onContextMenu={(e) => handleRightClick(e, rowIndex, colIndex)}
                 onTouchStart={(e) => handleTouchStart(rowIndex, colIndex, e)}
                 onTouchEnd={handleTouchEnd}
-                onTouchMove={handleTouchMove}
                 style={{ color: getCellColor(cell) }}
               >
                 {getCellContent(cell)}
@@ -349,11 +329,6 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
             ))
           )}
         </Board>
-        {isTouchDevice && scale !== 1 && (
-          <ZoomIndicator>
-            {Math.round(scale * 100)}%
-          </ZoomIndicator>
-        )}
       </BoardContainer>
     </BoardWrapper>
   );
