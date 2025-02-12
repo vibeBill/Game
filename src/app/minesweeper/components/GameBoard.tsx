@@ -101,6 +101,10 @@ interface GameBoardProps {
   rows: number;
   cols: number;
   mines: number;
+  settings:{
+    soundVolume: number;
+    musicVolume: number;
+  };
   onGameOver: (won: boolean) => void;
   onUpdateMineCount: (count: number) => void;
 }
@@ -120,7 +124,7 @@ const getNeighborCoords = (row: number, col: number, maxRow: number, maxCol: num
   return neighbors;
 };
 
-export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineCount }: GameBoardProps) {
+export default function GameBoard({ rows, cols, mines,settings, onGameOver, onUpdateMineCount }: GameBoardProps) {
   const [board, setBoard] = useState<CellData[][]>(() => 
     Array(rows).fill(null).map(() =>
       Array(cols).fill(null).map(() => ({
@@ -151,15 +155,15 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
     // 配置背景音乐
     if (bgmAudioRef.current) {
       bgmAudioRef.current.loop = true;
-      bgmAudioRef.current.volume = 0.3; // 降低背景音乐音量
+      bgmAudioRef.current.volume = settings.musicVolume / 100; // 降低背景音乐音量
     }
 
     // 配置音效音量
     if (flagAudioRef.current) {
-      flagAudioRef.current.volume = 0.5;
+      flagAudioRef.current.volume = settings.soundVolume / 100;
     }
     if (explosionAudioRef.current) {
-      explosionAudioRef.current.volume = 0.6;
+      explosionAudioRef.current.volume = settings.soundVolume / 100;
     }
 
     // 开始播放背景音乐
@@ -175,6 +179,20 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
       explosionAudioRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (bgmAudioRef.current) {
+      bgmAudioRef.current.volume = settings.musicVolume / 100;
+    }
+    
+    if (flagAudioRef.current) {
+      flagAudioRef.current.volume = settings.soundVolume / 100;
+    }
+
+    if (explosionAudioRef.current) {
+      explosionAudioRef.current.volume = settings.soundVolume / 100;
+    }
+  }, [settings]);
 
   // 播放插旗音效
   const playFlagSound = () => {

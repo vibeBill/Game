@@ -118,6 +118,7 @@ export default function MinesweeperPage() {
         rows={difficulty.rows}
         cols={difficulty.cols}
         mines={difficulty.mines}
+        settings={settings}
         onGameOver={handleGameOver}
         onUpdateMineCount={setRemainingMines}
       />
