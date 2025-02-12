@@ -1,7 +1,14 @@
 'use client';
 
 import styled from '@emotion/styled';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+const AUDIO_URLS = {
+  flag: './231321__sora955__flag.wav', // 放置旗子的音效
+  explosion: './560576__theplax__explosion-3.wav', // 爆炸音效
+  bgm: './721148__ncone__bgm-blues-guitar-loop.mp3' // 背景音乐
+};
+
 
 const BoardWrapper = styled.div`
   overflow: auto;
@@ -130,6 +137,62 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
   const [longPressingCell, setLongPressingCell] = useState<{row: number, col: number} | null>(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
+  const flagAudioRef = useRef<HTMLAudioElement | null>(null);
+  const explosionAudioRef = useRef<HTMLAudioElement | null>(null);
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // 初始化音频元素
+  useEffect(() => {
+    // 创建音频元素
+    flagAudioRef.current = new Audio(AUDIO_URLS.flag);
+    explosionAudioRef.current = new Audio(AUDIO_URLS.explosion);
+    bgmAudioRef.current = new Audio(AUDIO_URLS.bgm);
+
+    // 配置背景音乐
+    if (bgmAudioRef.current) {
+      bgmAudioRef.current.loop = true;
+      bgmAudioRef.current.volume = 0.3; // 降低背景音乐音量
+    }
+
+    // 配置音效音量
+    if (flagAudioRef.current) {
+      flagAudioRef.current.volume = 0.5;
+    }
+    if (explosionAudioRef.current) {
+      explosionAudioRef.current.volume = 0.6;
+    }
+
+    // 开始播放背景音乐
+    bgmAudioRef.current?.play().catch(error => {
+      console.log("Auto-play was prevented. Please interact with the page first.");
+    });
+
+    // 组件卸载时清理
+    return () => {
+      bgmAudioRef.current?.pause();
+      bgmAudioRef.current = null;
+      flagAudioRef.current = null;
+      explosionAudioRef.current = null;
+    };
+  }, []);
+
+  // 播放插旗音效
+  const playFlagSound = () => {
+    if (flagAudioRef.current) {
+      flagAudioRef.current.currentTime = 0;
+      flagAudioRef.current.play().catch(error => console.log("Error playing flag sound"));
+    }
+  };
+
+  // 播放爆炸音效
+  const playExplosionSound = () => {
+    if (explosionAudioRef.current) {
+      explosionAudioRef.current.currentTime = 0;
+      explosionAudioRef.current.play().catch(error => console.log("Error playing explosion sound"));
+    }
+  };
+
+
   useEffect(() => {
     setIsTouchDevice('ontouchstart' in window);
   }, []);
@@ -222,6 +285,7 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
     }
   
     if (board[row][col].isMine) {
+      playExplosionSound();
       // Game Over
       const revealedBoard = board.map(row =>
         row.map(cell => ({ ...cell, isRevealed: true }))
@@ -260,6 +324,10 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
     const newRemainingFlags = remainingFlags + (newBoard[row][col].isFlagged ? -1 : 1);
     setRemainingFlags(newRemainingFlags);
     onUpdateMineCount(newRemainingFlags);
+
+    if (newBoard[row][col].isFlagged) {
+      playFlagSound();
+    }
   };
 
   const handleRightClick = (e: React.MouseEvent, row: number, col: number) => {
