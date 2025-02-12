@@ -255,7 +255,7 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
 
   const revealNeighborsIfSafe = (row: number, col: number, currentBoard: CellData[][]) => {
     const cell = currentBoard[row][col];
-    if (!cell.isRevealed || cell.isMine) return;
+    if (!cell.isRevealed || cell.isMine) return true;
   
     const neighbors = getNeighborCoords(row, col, rows, cols);
   
@@ -264,13 +264,19 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
     const isFlaggedCorrectly = flaggedCells.every(([r, c]) => currentBoard[r][c].isMine);
   
     // If the number of flagged cells equals the number of neighbor mines AND all flags are correct
-    if (flaggedCells.length === cell.neighborMines && isFlaggedCorrectly) {
-      neighbors.forEach(([r, c]) => {
-        if (!currentBoard[r][c].isRevealed && !currentBoard[r][c].isFlagged) {
-          revealCell(r, c, currentBoard);
-        }
-      });
+    if (flaggedCells.length === cell.neighborMines) {
+      if(isFlaggedCorrectly){
+        neighbors.forEach(([r, c]) => {
+          if (!currentBoard[r][c].isRevealed && !currentBoard[r][c].isFlagged) {
+            revealCell(r, c, currentBoard);
+          }
+        });
+        return true;
+      }else{
+        return false;
+      }
     }
+    return true;
   };
 
   const handleCellClick = (row: number, col: number) => {
@@ -296,13 +302,26 @@ export default function GameBoard({ rows, cols, mines, onGameOver, onUpdateMineC
     }
   
     const newBoard = board.map(row => [...row]);
+
+    let isSafe = true;
     
     if (board[row][col].isRevealed) {
       // If the cell is already revealed, check if it's safe to reveal neighbors
-      revealNeighborsIfSafe(row, col, newBoard);
+      isSafe = revealNeighborsIfSafe(row, col, newBoard)!;
     } else {
       // Otherwise, reveal the clicked cell
       revealCell(row, col, newBoard);
+    }
+
+    if (!isSafe) {
+      playExplosionSound();
+      // Game Over
+      const revealedBoard = board.map(row =>
+        row.map(cell => ({ ...cell, isRevealed: true }))
+      );
+      setBoard(revealedBoard);
+      onGameOver(false);
+      return;
     }
   
     setBoard(newBoard);
